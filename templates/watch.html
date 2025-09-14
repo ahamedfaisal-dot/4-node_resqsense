@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Sensor Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50; /* Dark blue-gray background */
+            color: #ecf0f1;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #3498db; /* Bright blue for the title */
+            margin-bottom: 30px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .chart-container {
+            background-color: #34495e; /* Slightly lighter blue-gray */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .chart-title {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            color: #ecf0f1;
+        }
+        
+        .status-box {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .status-normal {
+            background-color: #27ae60; /* Green */
+        }
+
+        .status-abnormal {
+            background-color: #c0392b; /* Red */
+        }
+        
+        .other-data-container {
+            margin-top: 20px;
+            grid-column: 1 / -1; /* Span across all columns */
+            background-color: #34495e;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .data-box {
+            text-align: center;
+            margin: 10px;
+        }
+
+        .data-box h3 {
+            margin-bottom: 5px;
+            color: #3498db;
+        }
+
+        .data-box p {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        
+        /* SOS Alert Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: #e74c3c;
+            color: white;
+            padding: 30px 40px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            animation: shake 0.5s;
+        }
+        
+        .modal-content h2 {
+            margin: 0 0 15px 0;
+            font-size: 2.5em;
+        }
+
+        .modal-content p {
+            margin: 0 0 25px 0;
+            font-size: 1.2em;
+        }
+
+        .location-button {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: #ecf0f1;
+            color: #c0392b;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 5px;
+            margin-right: 10px;
+            transition: transform 0.2s;
+        }
+        
+        .location-button:hover {
+            transform: scale(1.05);
+        }
+
+        #close-sos {
+            padding: 12px 25px;
+            border: none;
+            background-color: #c0392b;
+            color: white;
+            border: 2px solid white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Wearable Health Monitor</h1>
+
+    <div class="container">
+        <div class="chart-container">
+            <div class="chart-title">Heart Rate (BPM)</div>
+            <div id="hr-status" class="status-box status-normal">NORMAL</div>
+            <canvas id="heartRateChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">SpO2 (%)</div>
+            <div id="spo2-status" class="status-box status-normal">NORMAL</div>
+            <canvas id="spo2Chart"></canvas>
+        </div>
+    </div>
+    
+    <div class="other-data-container">
+        <div class="data-box">
+            <h3>Accelerometer X</h3>
+            <p id="accel-x">0.00</p>
+        </div>
+        <div class="data-box">
+            <h3>Accelerometer Y</h3>
+            <p id="accel-y">0.00</p>
+        </div>
+        <div class="data-box">
+            <h3>Accelerometer Z</h3>
+            <p id="accel-z">0.00</p>
+        </div>
+        <div class="data-box">
+            <h3>Button State</h3>
+            <p id="button-state">0</p>
+        </div>
+        <div class="data-box">
+            <h3>Worker Status</h3>
+            <p id="worker-status">Idle</p>
+        </div>
+    </div>
+
+    <!-- SOS Alert Modal -->
+    <div id="sos-alert" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>SOS ALERT!</h2>
+            <p>West side miner is in danger!</p>
+            <a href="#" class="location-button">See his live location</a>
+            <button id="close-sos">Dismiss</button>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Global State and Configuration ---
+        const MAX_DATA_POINTS = 20;
+        let lastAccel = null;
+        const MOVEMENT_THRESHOLD = 0.5; // Adjust this value based on sensor sensitivity
+        let audioCtx; // To be initialized on first user interaction for the alert sound
+        let isSosActive = false;
+        let sosSoundInterval = null; // To hold the interval ID for the repeating sound
+
+        // --- DOM Elements ---
+        const sosAlertModal = document.getElementById('sos-alert');
+        const closeSosButton = document.getElementById('close-sos');
+        
+        // --- Chart.js Configuration ---
+        function createChart(ctx, label, color) {
+            return new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: label, data: [], borderColor: color, backgroundColor: color.replace('1)', '0.2)'), borderWidth: 2, fill: true, tension: 0.4 }] },
+                options: {
+                    scales: {
+                        x: { ticks: { color: '#ecf0f1' }, grid: { color: 'rgba(236, 240, 241, 0.1)' } },
+                        y: { beginAtZero: false, ticks: { color: '#ecf0f1' }, grid: { color: 'rgba(236, 240, 241, 0.1)' } }
+                    },
+                    plugins: { legend: { display: false } },
+                    responsive: true, maintainAspectRatio: true
+                }
+            });
+        }
+
+        const hrCtx = document.getElementById('heartRateChart').getContext('2d');
+        const spo2Ctx = document.getElementById('spo2Chart').getContext('2d');
+        const heartRateChart = createChart(hrCtx, 'Heart Rate', 'rgba(231, 76, 60, 1)');
+        const spo2Chart = createChart(spo2Ctx, 'SpO2', 'rgba(52, 152, 219, 1)');
+        
+        // --- WebSocket Connection ---
+        const socket = io();
+        socket.on('connect', () => console.log('Connected to server'));
+        socket.on('disconnect', () => console.log('Disconnected from server'));
+        
+        socket.on('initial_data', (data) => {
+            console.log('Received initial data:', data);
+            if (data.length > 0) {
+                lastAccel = data[data.length - 1].accelerometer; // Set baseline from the last known point
+            }
+            data.forEach(point => updateDashboard(point));
+        });
+
+        socket.on('sensor_update', (data) => {
+            console.log('Received sensor update:', data);
+            updateDashboard(data);
+        });
+        
+        // --- Alert Sound Functions ---
+        function playAlertSound() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            stopAlertSound(); // Clear any existing sound interval to prevent overlap
+
+            const playBeep = () => {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(900, audioCtx.currentTime); // High pitch
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + 0.5); // Play for 0.5 seconds
+            };
+
+            playBeep(); // Play the beep immediately
+            sosSoundInterval = setInterval(playBeep, 1000); // Repeat every second
+
+            // Stop the sound after 10 seconds
+            setTimeout(() => {
+                stopAlertSound();
+            }, 10000);
+        }
+
+        function stopAlertSound() {
+            if (sosSoundInterval) {
+                clearInterval(sosSoundInterval);
+                sosSoundInterval = null;
+            }
+        }
+
+        // --- Dashboard Update Logic ---
+        function updateDashboard(data) {
+            // Update charts
+            updateChart(heartRateChart, data.heart_rate);
+            updateChart(spo2Chart, data.spo2);
+            
+            // Update status boxes
+            updateStatus('hr-status', data.heart_rate, 60, 100);
+            updateStatus('spo2-status', data.spo2, 95, 100);
+            
+            // Update other data fields
+            document.getElementById('accel-x').textContent = data.accelerometer.x.toFixed(2);
+            document.getElementById('accel-y').textContent = data.accelerometer.y.toFixed(2);
+            document.getElementById('accel-z').textContent = data.accelerometer.z.toFixed(2);
+            document.getElementById('button-state').textContent = data.button;
+            
+            // Check for worker activity
+            updateWorkerStatus(data.accelerometer);
+
+            // Check for SOS button press
+            if (data.button === 1 && !isSosActive) {
+                isSosActive = true;
+                sosAlertModal.style.display = 'flex';
+                playAlertSound();
+            }
+        }
+
+        function updateChart(chart, value) {
+            if (value === -1 || value === null) return;
+            const now = new Date();
+            const timeLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            chart.data.labels.push(timeLabel);
+            chart.data.datasets[0].data.push(value);
+            if (chart.data.labels.length > MAX_DATA_POINTS) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+            }
+            chart.update();
+        }
+
+        function updateStatus(elementId, value, minNormal, maxNormal) {
+            const statusElement = document.getElementById(elementId);
+            if (value >= minNormal && value <= maxNormal) {
+                statusElement.textContent = 'NORMAL';
+                statusElement.className = 'status-box status-normal';
+            } else {
+                statusElement.textContent = 'ABNORMAL';
+                statusElement.className = 'status-box status-abnormal';
+            }
+        }
+        
+        function updateWorkerStatus(currentAccel) {
+            if (lastAccel) {
+                const deltaX = currentAccel.x - lastAccel.x;
+                const deltaY = currentAccel.y - lastAccel.y;
+                const deltaZ = currentAccel.z - lastAccel.z;
+                // Calculate the magnitude of the change vector
+                const movement = Math.sqrt(deltaX*deltaX + deltaY*deltaY + deltaZ*deltaZ);
+
+                if (movement > MOVEMENT_THRESHOLD) {
+                    document.getElementById('worker-status').textContent = 'Active';
+                } else {
+                    document.getElementById('worker-status').textContent = 'Idle';
+                }
+            }
+            // Update the last known accelerometer reading for the next comparison
+            lastAccel = currentAccel;
+        }
+
+        // --- Event Listeners ---
+        closeSosButton.addEventListener('click', () => {
+            sosAlertModal.style.display = 'none';
+            isSosActive = false; // Allow the alert to be triggered again
+            stopAlertSound(); // Stop the sound when dismissed
+        });
+
+    </script>
+</body>
+</html>

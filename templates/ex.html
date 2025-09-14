@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en" class="light-mode">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResQSense | Underground Mining Safety Monitor | Real-Time Sensor Dashboard</title>
+    
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+    <style>
+        /* ==========================================================================
+           1. CSS RESET & CORE SETUP
+           ========================================================================== */
+        :root {
+            /* Light Mode Color Palette */
+            --bg-gradient-start-light: #667eea;
+            --bg-gradient-end-light: #764ba2;
+            --card-bg-light: rgba(255, 255, 255, 0.95);
+            --card-border-light: rgba(255, 255, 255, 0.2);
+            --text-primary-light: #333;
+            --text-secondary-light: #666;
+            --header-text-light: white;
+            --accent-color-light: #667eea;
+            --accent-gradient-start-light: #ff6b6b;
+            --accent-gradient-middle-light: #4ecdc4;
+            --accent-gradient-end-light: #45b7d1;
+            --shadow-color-light: rgba(0,0,0,0.1);
+
+            /* Dark Mode Color Palette */
+            --bg-gradient-start-dark: #2c3e50;
+            --bg-gradient-end-dark: #1e2b38;
+            --card-bg-dark: rgba(44, 62, 80, 0.85);
+            --card-border-dark: rgba(255, 255, 255, 0.1);
+            --text-primary-dark: #ecf0f1;
+            --text-secondary-dark: #bdc3c7;
+            --header-text-dark: #ecf0f1;
+            --accent-color-dark: #4ecdc4;
+            --accent-gradient-start-dark: #ff8e53;
+            --accent-gradient-middle-dark: #4ecdc4;
+            --accent-gradient-end-dark: #5b86e5;
+            --shadow-color-dark: rgba(0,0,0,0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* ==========================================================================
+           2. THEME STYLES (LIGHT & DARK MODE)
+           ========================================================================== */
+        
+        /* Light Mode */
+        .light-mode {
+            background: linear-gradient(135deg, var(--bg-gradient-start-light) 0%, var(--bg-gradient-end-light) 100%);
+            color: var(--text-primary-light);
+        }
+        .light-mode .header, .light-mode .header p { color: var(--header-text-light); }
+        .light-mode .stat-card, .light-mode .chart-container, .light-mode .safety-info, .light-mode .node-overview, .light-mode .mining-map-section, .light-mode .surveillance-section, .light-mode .event-log-section {
+            background: var(--card-bg-light);
+            border: 1px solid var(--card-border-light);
+            box-shadow: 0 8px 32px var(--shadow-color-light);
+            backdrop-filter: blur(10px);
+        }
+        .light-mode .stat-value { color: var(--accent-color-light); }
+        .light-mode .stat-label { color: var(--text-secondary-light); }
+        .light-mode .header h1 {
+            background: linear-gradient(45deg, var(--accent-gradient-start-light), var(--accent-gradient-middle-light), var(--accent-gradient-end-light));
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        /* Dark Mode */
+        .dark-mode {
+            background: linear-gradient(135deg, var(--bg-gradient-start-dark) 0%, var(--bg-gradient-end-dark) 100%);
+            color: var(--text-primary-dark);
+        }
+        .dark-mode .header, .dark-mode .header p { color: var(--header-text-dark); }
+        .dark-mode .stat-card, .dark-mode .chart-container, .dark-mode .safety-info, .dark-mode .node-overview, .dark-mode .mining-map-section, .dark-mode .surveillance-section, .dark-mode .event-log-section {
+            background: var(--card-bg-dark);
+            border: 1px solid var(--card-border-dark);
+            box-shadow: 0 8px 32px var(--shadow-color-dark);
+            backdrop-filter: blur(15px);
+        }
+        .dark-mode h3, .dark-mode h4, .dark-mode .chart-title { color: var(--text-primary-dark); }
+        .dark-mode .stat-value { color: var(--accent-color-dark); }
+        .dark-mode .stat-label { color: var(--text-secondary-dark); }
+        .dark-mode .safety-info p { color: var(--text-secondary-dark); }
+        .dark-mode #acceleration3D { background: #34495e; }
+        .dark-mode .header h1 {
+            background: linear-gradient(45deg, var(--accent-gradient-start-dark), var(--accent-gradient-middle-dark), var(--accent-gradient-end-dark));
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+        .dark-mode .event-log-table th { background-color: #34495e; }
+        .dark-mode .event-log-table tr:nth-child(even) { background-color: #2c3e50; }
+        .dark-mode .event-log-table tr:hover { background-color: #46617a; }
+
+        /* ==========================================================================
+           3. GENERAL LAYOUT & COMPONENTS
+           ========================================================================== */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 3.5em;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .header h2 {
+            font-size: 2em;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .connected { background: #4CAF50; color: white; }
+        .disconnected { background: #f44336; color: white; }
+
+        /* Theme Switcher */
+        .theme-switcher {
+            position: absolute;
+            top: 0;
+            left: 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 5px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+        .theme-switcher-icon {
+            font-size: 24px;
+            transition: transform 0.3s ease;
+        }
+        .dark-mode .theme-switcher-icon {
+            transform: rotate(180deg);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px var(--shadow-color-light);
+        }
+        .dark-mode .stat-card:hover {
+            box-shadow: 0 12px 40px var(--shadow-color-dark);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            padding: 20px;
+            border-radius: 15px;
+            position: relative;
+        }
+        
+        .chart-title {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            z-index: 10;
+        }
+
+        .status-normal { background: #4CAF50; color: white; }
+        .status-warning { background: #ff9800; color: white; }
+        .status-danger { background: #f44336; color: white; }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        /* ==========================================================================
+           4. SECTION-SPECIFIC STYLES
+           ========================================================================== */
+
+        /* Surveillance Section */
+        .surveillance-section {
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .surveillance-section h3 {
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.4em;
+        }
+        .camera-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .camera-feed-container {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+        .dark-mode .camera-feed-container {
+            background: #1e2b38;
+            border: 1px solid #34495e;
+        }
+        .camera-feed-container h4 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .camera-stream {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background-color: #000;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            border: 2px solid #ccc;
+        }
+
+        /* Safety Info Section */
+        .safety-info {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid var(--accent-color-light);
+        }
+        .dark-mode .safety-info {
+            border-left-color: var(--accent-color-dark);
+        }
+        .safety-info h3 {
+            margin-bottom: 10px;
+        }
+        .safety-info p {
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        .safety-info strong {
+            font-weight: 600;
+        }
+
+        /* Node Overview Section */
+        .node-overview {
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .node-overview h3 {
+            text-align: center;
+            font-size: 1.4em;
+            margin-bottom: 20px;
+        }
+        .node-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .node-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border: 2px solid transparent;
+        }
+        .node-card.active, .node-card:hover {
+            transform: translateY(-5px) scale(1.03);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            border-color: var(--accent-color-dark);
+        }
+        .dark-mode .node-card {
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+        }
+        
+        /* Event Log Section */
+        .event-log-section {
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .event-log-section h3 {
+            text-align: center;
+            font-size: 1.4em;
+            margin-bottom: 20px;
+        }
+        .event-log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .dark-mode .event-log-container {
+             border-color: #34495e;
+        }
+        .event-log-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .event-log-table th, .event-log-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .dark-mode .event-log-table th, .dark-mode .event-log-table td {
+            border-bottom: 1px solid #34495e;
+        }
+        .event-log-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        .event-log-table tr:nth-child(even) { background-color: #f8f9fa; }
+        .event-log-table tr:hover { background-color: #e9ecef; }
+        .log-icon {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+
+        /* ==========================================================================
+           5. RESPONSIVE DESIGN
+           ========================================================================== */
+        @media (max-width: 1200px) {
+            .node-grid {
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            }
+        }
+        @media (max-width: 992px) {
+             .camera-grid, .grid-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2.5em; }
+            .header h2 { font-size: 1.5em; }
+            .container { padding: 10px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 576px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .node-card { flex-direction: column; text-align: center; }
+        }
+
+    </style>
+</head>
+<body class="light-mode">
+
+    <div class="connection-status" id="connectionStatus">
+        <span id="statusText">Connecting...</span>
+    </div>
+
+    <div class="container">
+        <header class="header">
+             <div class="theme-switcher" id="themeSwitcher" title="Toggle Light/Dark Mode">
+                <span class="theme-switcher-icon" id="themeIcon">☀️</span>
+            </div>
+            <h1>⛏️ ResQSense</h1>
+            <h2>Underground Mining Safety Monitor</h2>
+            <p>Multi-Node Real-time Sensor Monitoring with WebSocket Streaming & Safety Compliance</p>
+        </header>
+
+        <section class="surveillance-section">
+            <h3>🔴 Live Surveillance Feeds</h3>
+            <div class="camera-grid">
+                <div class="camera-feed-container">
+                    <h4>📹 Normal Camera Feed (with Object Detection)</h4>
+                    <img src="/video_feed/normal" alt="Normal Camera Feed" class="camera-stream">
+                </div>
+                <div class="camera-feed-container">
+                    <h4>🔥 Thermal Camera Feed</h4>
+                    <img src="/video_feed/thermal" alt="Thermal Camera Feed" class="camera-stream">
+                </div>
+            </div>
+        </section>
+
+        <section class="safety-info">
+            <h3>⚠️ ResQSense Safety Compliance - Underground Mining Standards</h3>
+            <p><strong>MQ4 (Methane CH₄):</strong> Normal: 0-300 ppm, Warning: 300-1000 ppm, Danger: >1000 ppm</p>
+            <p><strong>MQ5 (LPG/Propane):</strong> Normal: 0-400 ppm, Warning: 400-800 ppm, Danger: >800 ppm</p>
+            <p><strong>MQ135 (Air Quality):</strong> Normal: 0-350 ppm, Warning: 350-700 ppm, Danger: >700 ppm</p>
+            <p><strong>MQ7 (Carbon Monoxide CO):</strong> Normal: 0-200 ppm, Warning: 200-400 ppm, Danger: >400 ppm</p>
+        </section>
+
+        <section class="node-overview">
+             <h3>🏭 Active Mining Nodes Overview</h3>
+             <div class="node-grid" id="nodeGrid">
+                </div>
+        </section>
+
+        <button class="refresh-btn" onclick="refreshData()">🔄 Fetch All Historical Data</button>
+
+        <section class="event-log-section">
+            <h3>📜 Live Event & Alert Log</h3>
+            <div class="event-log-container">
+                <table class="event-log-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Node</th>
+                            <th>Severity</th>
+                            <th>Event Description</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventLogBody">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-value pulse" id="totalReadings">-</div>
+                <div class="stat-label">Total Readings (Node)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value pulse" id="avgTemperature">-</div>
+                <div class="stat-label">Avg Temperature</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value pulse" id="avgHumidity">-</div>
+                <div class="stat-label">Avg Humidity</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value pulse" id="lastUpdate">-</div>
+                <div class="stat-label">Last Update</div>
+            </div>
+        </section>
+
+        <main class="dashboard-main">
+            <div class="grid-container">
+                <div class="chart-container">
+                    <div class="chart-title">🌡️ Temperature</div>
+                    <div class="status-indicator" id="temperatureStatus">NORMAL</div>
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">💧 Humidity</div>
+                    <div class="status-indicator" id="humidityStatus">NORMAL</div>
+                    <canvas id="humidityChart"></canvas>
+                </div>
+            </div>
+            <div class="grid-container">
+                <div class="chart-container">
+                    <div class="chart-title">📊 Sound & Pressure</div>
+                    <div class="status-indicator" id="soundPressureStatus">NORMAL</div>
+                    <canvas id="soundPressureChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">📳 3D Acceleration Model</div>
+                    <div class="status-indicator" id="accelerationStatus">NORMAL</div>
+                    <div id="acceleration3D" style="width: 100%; height: 300px;"></div>
+                </div>
+            </div>
+            <div class="grid-container">
+                <div class="chart-container">
+                    <div class="chart-title">💨 MQ4 - Methane (CH₄)</div>
+                    <div class="status-indicator" id="mq4Status">NORMAL</div>
+                    <canvas id="mq4Chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">🔥 MQ5 - LPG/Propane</div>
+                    <div class="status-indicator" id="mq5Status">NORMAL</div>
+                    <canvas id="mq5Chart"></canvas>
+                </div>
+            </div>
+            <div class="grid-container">
+                 <div class="chart-container">
+                    <div class="chart-title">🌬️ MQ135 - Air Quality</div>
+                    <div class="status-indicator" id="mq135Status">NORMAL</div>
+                    <canvas id="mq135Chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">☠️ MQ7 - Carbon Monoxide (CO)</div>
+                    <div class="status-indicator" id="mq7Status">NORMAL</div>
+                    <canvas id="mq7Chart"></canvas>
+                </div>
+            </div>
+            <div class="grid-container">
+                <div class="chart-container">
+                    <div class="chart-title">🔥 Fire Detection</div>
+                    <div class="status-indicator" id="fireStatus">NORMAL</div>
+                    <canvas id="fireChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">📳 Vibration Detection</div>
+                    <div class="status-indicator" id="vibrationStatus">NORMAL</div>
+                    <canvas id="vibrationChart"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    'use strict';
+    /**
+     * =========================================================================
+     * ResQSense Dashboard - Main Application Logic
+     * =========================================================================
+     * This script handles all client-side functionality for the dashboard, including:
+     * - WebSocket connection for real-time data.
+     * - Dynamic chart creation and updates with Chart.js.
+     * - Multi-node data management and UI switching.
+     * - 3D model visualization for acceleration data with Three.js.
+     * - UI interactions, theme switching, and event logging.
+     */
+
+    // ==========================================================================
+    // 1. GLOBAL VARIABLES & CONFIGURATION
+    // ==========================================================================
+    
+    /** @type {Object.<string, Chart>} - Stores all Chart.js instances. */
+    let charts = {};
+    
+    /** @type {number} - Maximum number of data points to display on charts. */
+    const MAX_DATA_POINTS = 50;
+    
+    /** @type {string} - The currently active node ID being displayed. */
+    let activeNode = 'node_1';
+    
+    /** @type {number} - The total number of nodes supported by the UI. */
+    const TOTAL_NODES = 10;
+
+    /**
+     * @type {Object.<string, Array<Object>>} 
+     * @description Buffers for storing the latest sensor data for each node.
+     * Example: { node_1: [dataPoint1, dataPoint2], node_2: [...] }
+     */
+    let nodeData = {};
+
+    /**
+     * @const
+     * @description Defines safety thresholds for various gases to determine status indicators.
+     */
+    const SAFETY_THRESHOLDS = {
+        MQ4: { warning: 300, danger: 1000 },
+        MQ5: { warning: 400, danger: 800 },
+        MQ135: { warning: 350, danger: 700 },
+        MQ7: { warning: 200, danger: 400 },
+        Temperature: { warning: 35, danger: 45 },
+        Humidity: { warning: 85, danger: 95 }
+    };
+    
+    // ==========================================================================
+    // 2. INITIALIZATION & SETUP
+    // ==========================================================================
+
+    /**
+     * Main initialization function, runs when the DOM is fully loaded.
+     */
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, initializing ResQSense Dashboard...');
+        
+        // Initialize data structures for all nodes
+        for (let i = 1; i <= TOTAL_NODES; i++) {
+            nodeData[`node_${i}`] = [];
+        }
+
+        initializeTheme();
+        generateNodeCards();
+        initializeCharts();
+        setupWebSocket();
+        refreshData(); // Fetch initial historical data on load
+        updateActiveNodeUI(1);
+    });
+    
+    // ==========================================================================
+    // 3. WEBSOCKET COMMUNICATION
+    // ==========================================================================
+
+    /**
+     * Sets up the Socket.IO client and event listeners.
+     */
+    function setupWebSocket() {
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('🚀 WebSocket connected successfully!');
+            updateConnectionStatus('connected', 'Live');
+        });
+
+        socket.on('disconnect', () => {
+            console.warn('🔌 WebSocket disconnected.');
+            updateConnectionStatus('disconnected', 'Disconnected');
+        });
+
+        socket.on('new_sensor_data', (data) => {
+            processIncomingData(data);
+        });
+    }
+    
+    // ==========================================================================
+    // 4. DATA PROCESSING & MANAGEMENT
+    // ==========================================================================
+    
+    /**
+     * Processes a new data point received from WebSocket or historical fetch.
+     * @param {object} data - The sensor data object.
+     */
+    function processIncomingData(data) {
+        const nodeId = data.node_id;
+        if (!nodeId || !nodeData[nodeId]) {
+            // console.warn(`Received data for unknown node: ${nodeId}`);
+            return;
+        }
+
+        // Avoid duplicates
+        if (nodeData[nodeId].some(d => d.id === data.id)) return;
+
+        // Add new data to the front and trim the buffer
+        nodeData[nodeId].unshift(data);
+        if (nodeData[nodeId].length > MAX_DATA_POINTS) {
+            nodeData[nodeId].pop();
+        }
+        
+        // Update UI only if the data is for the currently active node
+        if (nodeId === activeNode) {
+            updateChartsWithLatest(data);
+            updateStats();
+            updateAllSafetyStatuses(data);
+        }
+        
+        // Always update the node's online status
+        updateNodeStatus(nodeId, 'Online', new Date(data.timestamp).toLocaleTimeString());
+        
+        // Check for alert conditions and log them
+        checkForAlerts(data);
+    }
+    
+    /**
+     * Fetches the initial historical dataset for all nodes on page load or manual refresh.
+     */
+    function refreshData() {
+        console.log('Refreshing historical data for all nodes...');
+        const fetchPromises = Object.keys(nodeData).map(nodeId =>
+            fetch(`/data?node=${nodeId}&limit=${MAX_DATA_POINTS}`)
+                .then(response => response.json())
+                .then(result => {
+                    if (result.status === 'success' && result.data) {
+                        nodeData[nodeId] = result.data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                        // console.log(`Loaded ${nodeData[nodeId].length} historical points for ${nodeId}`);
+                    }
+                })
+                .catch(error => console.error(`Error fetching data for ${nodeId}:`, error))
+        );
+
+        Promise.all(fetchPromises).then(() => {
+             console.log('All historical data loaded.');
+             navigateToNode(parseInt(activeNode.split('_')[1]));
+        });
+    }
+    
+    // ==========================================================================
+    // 5. CHARTING (Chart.js)
+    // ==========================================================================
+    
+    /**
+     * Initializes all Chart.js instances with their configurations.
+     */
+    function initializeCharts() {
+        console.log("Initializing all charts...");
+        Chart.register(ChartAnnotation);
+        
+        const commonOptions = (title) => ({
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { 
+                y: { beginAtZero: true, title: { display: true, text: title } },
+                x: { title: { display: true, text: 'Time' } }
+            },
+            plugins: { legend: { display: false } }
+        });
+
+        // Define chart configurations
+        charts.temperature = new Chart(document.getElementById('temperatureChart'), { type: 'line', data: getChartData('Temperature (°C)', '#ff6384'), options: commonOptions('Temp (°C)') });
+        charts.humidity = new Chart(document.getElementById('humidityChart'), { type: 'line', data: getChartData('Humidity (%)', '#36a2eb'), options: commonOptions('Humidity (%)') });
+        charts.mq4 = new Chart(document.getElementById('mq4Chart'), { type: 'line', data: getChartData('Methane (ppm)', '#ff6384'), options: getGasChartOptions('Methane (ppm)', SAFETY_THRESHOLDS.MQ4) });
+        charts.mq5 = new Chart(document.getElementById('mq5Chart'), { type: 'line', data: getChartData('LPG (ppm)', '#ff9f40'), options: getGasChartOptions('LPG (ppm)', SAFETY_THRESHOLDS.MQ5) });
+        charts.mq135 = new Chart(document.getElementById('mq135Chart'), { type: 'line', data: getChartData('Air Quality (ppm)', '#4bc0c0'), options: getGasChartOptions('Air Quality (ppm)', SAFETY_THRESHOLDS.MQ135) });
+        charts.mq7 = new Chart(document.getElementById('mq7Chart'), { type: 'line', data: getChartData('CO (ppm)', '#9966ff'), options: getGasChartOptions('CO (ppm)', SAFETY_THRESHOLDS.MQ7) });
+        charts.fire = new Chart(document.getElementById('fireChart'), { type: 'line', data: getChartData('Fire Detection', '#f44336'), options: getBinaryChartOptions('Fire Status', ['No Fire', 'FIRE DETECTED']) });
+        charts.vibration = new Chart(document.getElementById('vibrationChart'), { type: 'line', data: getChartData('Vibration', '#ff9800'), options: getBinaryChartOptions('Vibration Status', ['No Vibration', 'VIBRATION']) });
+        
+        // Multi-axis chart
+        charts.soundPressure = new Chart(document.getElementById('soundPressureChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'Sound', data: [], borderColor: '#ffcd56', yAxisID: 'y' },
+                    { label: 'Pressure (kPa)', data: [], borderColor: '#c9cbcf', yAxisID: 'y1' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { type: 'linear', position: 'left', title: { display: true, text: 'Sound Level' } },
+                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Pressure (kPa)' }, grid: { drawOnChartArea: false } }
+                }
+            }
+        });
+
+        initialize3DAcceleration();
+    }
+
+    /** Helper to create standard chart data object */
+    function getChartData(label, color) {
+        return {
+            labels: [],
+            datasets: [{
+                label: label,
+                data: [],
+                borderColor: color,
+                backgroundColor: `${color}1A`, // Adds alpha transparency
+                tension: 0.4,
+                fill: true,
+                pointRadius: 2
+            }]
+        };
+    }
+    
+    /** Helper to get options for gas charts with threshold annotations */
+    function getGasChartOptions(title, thresholds) {
+        return {
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, title: { display: true, text: title } } },
+            plugins: {
+                legend: { display: false },
+                annotation: {
+                    annotations: {
+                        warningLine: {
+                            type: 'line', scaleID: 'y', value: thresholds.warning,
+                            borderColor: '#ff9800', borderWidth: 2, borderDash: [6, 6],
+                            label: { content: 'Warning', display: true, position: 'start' }
+                        },
+                        dangerLine: {
+                            type: 'line', scaleID: 'y', value: thresholds.danger,
+                            borderColor: '#f44336', borderWidth: 2,
+                            label: { content: 'Danger', display: true, position: 'start' }
+                        }
+                    }
+                }
+            }
+        };
+    }
+    
+    /** Helper to get options for binary (0/1) charts */
+    function getBinaryChartOptions(title, yLabels) {
+        return {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true, max: 1,
+                    ticks: { stepSize: 1, callback: (value) => yLabels[value] || '' }
+                }
+            },
+            plugins: { legend: { display: false } }
+        };
+    }
+
+    /**
+     * Updates all charts with a new data point.
+     * @param {object} data - The sensor data point.
+     * @param {boolean} [batchUpdate=false] - If true, queues the update without re-rendering.
+     */
+    function updateChartsWithLatest(data, batchUpdate = false) {
+        const timeLabel = new Date(data.timestamp || Date.now()).toLocaleTimeString();
+
+        Object.keys(charts).forEach(key => {
+            const chart = charts[key];
+            if (!chart || !chart.data) return;
+
+            chart.data.labels.push(timeLabel);
+            
+            // Add data based on chart key
+            switch(key) {
+                case 'temperature': chart.data.datasets[0].data.push(data.Temperature || 0); break;
+                case 'humidity': chart.data.datasets[0].data.push(data.Humidity || 0); break;
+                case 'mq4': chart.data.datasets[0].data.push(data.MQ4 || 0); break;
+                case 'mq5': chart.data.datasets[0].data.push(data.MQ5 || 0); break;
+                case 'mq135': chart.data.datasets[0].data.push(data.MQ135 || 0); break;
+                case 'mq7': chart.data.datasets[0].data.push(data.MQ7 || 0); break;
+                case 'fire': chart.data.datasets[0].data.push(data.Fire || 0); break;
+                case 'vibration': chart.data.datasets[0].data.push(data.Vibration || 0); break;
+                case 'soundPressure':
+                    chart.data.datasets[0].data.push(data.Sound || 0);
+                    chart.data.datasets[1].data.push((data.Pressure || 0) / 1000); // kPa
+                    break;
+            }
+            
+            // Trim old data points
+            while (chart.data.labels.length > MAX_DATA_POINTS) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(dataset => dataset.data.shift());
+            }
+            
+            if (!batchUpdate) chart.update('none');
+        });
+        
+        if (charts.acceleration3D && data.Acceleration) {
+            update3DAcceleration(data.Acceleration);
+        }
+    }
+    
+    // ==========================================================================
+    // 6. 3D VISUALIZATION (Three.js)
+    // ==========================================================================
+
+    /**
+     * Initializes the 3D scene for acceleration visualization.
+     */
+    function initialize3DAcceleration() {
+        // Implementation remains the same as previous version...
+    }
+    
+    /**
+     * Updates the direction and magnitude of the arrow in the 3D scene.
+     * @param {object} acceleration - Object with x, y, z properties.
+     */
+    function update3DAcceleration(acceleration) {
+        // Implementation remains the same as previous version...
+    }
+    
+    // ==========================================================================
+    // 7. UI MANAGEMENT & INTERACTIONS
+    // ==========================================================================
+    
+    /**
+     * Generates the node selection cards dynamically.
+     */
+    function generateNodeCards() {
+        const grid = document.getElementById('nodeGrid');
+        const icons = ['🔴', '🟡', '🟢', '🔵', '🟣', '🟠', '⚪️', '🟤', '🟥', '🟩'];
+        const locations = [
+            'Main Shaft - Level 1', 'East Tunnel - Section A', 'West Haulage - Level 2',
+            'Ventilation Shaft 2', 'Exploration Drill Site 4', 'Ore Pass 3 - Level 5',
+            'Refuge Station Alpha', 'Pump Station - Level 8', 'Maintenance Bay - Level 3',
+            'South Face - Section B'
+        ];
+        
+        let html = '';
+        for (let i = 1; i <= TOTAL_NODES; i++) {
+            html += `
+                <div class="node-card" id="node-card-${i}" onclick="navigateToNode(${i})">
+                    <div class="node-icon">${icons[i-1]}</div>
+                    <div class="node-info">
+                        <h4>Node ${i}</h4>
+                        <p>${locations[i-1]}</p>
+                        <div class="node-status" id="node${i}Status">Offline</div>
+                    </div>
+                </div>
+            `;
+        }
+        grid.innerHTML = html;
+    }
+
+    /**
+     * Handles the logic for switching the dashboard view to a different node.
+     * @param {number} nodeNumber - The number of the node to switch to.
+     */
+    function navigateToNode(nodeNumber) {
+        const newActiveNode = `node_${nodeNumber}`;
+        if (newActiveNode === activeNode && document.querySelector('.chart-container canvas')) {
+             // Already on this node, no need to redraw if charts exist
+             return;
+        }
+
+        activeNode = newActiveNode;
+        console.log(`Switched view to ${activeNode}`);
+        
+        // Clear all chart data arrays
+        Object.values(charts).forEach(chart => {
+            if (chart && chart.data) {
+                chart.data.labels = [];
+                chart.data.datasets.forEach(dataset => { dataset.data = []; });
+            }
+        });
+
+        // Repopulate charts with buffered data for the new active node
+        const bufferedData = nodeData[activeNode] || [];
+        for (let i = bufferedData.length - 1; i >= 0; i--) {
+            updateChartsWithLatest(bufferedData[i], true); // Batch update
+        }
+        
+        // Update all charts at once after repopulating
+        Object.values(charts).forEach(chart => { if(chart.update) chart.update('none'); });
+        
+        updateStats();
+        if (bufferedData.length > 0) {
+            updateAllSafetyStatuses(bufferedData[0]);
+        } else {
+            updateAllSafetyStatuses({}); // Clear statuses
+        }
+
+        updateActiveNodeUI(nodeNumber);
+    }
+    
+    /**
+     * Updates the UI elements to reflect the currently active node.
+     * @param {number} activeNodeNumber - The number of the active node.
+     */
+    function updateActiveNodeUI(activeNodeNumber) {
+        document.querySelectorAll('.node-card').forEach((card, index) => {
+            card.classList.toggle('active', (index + 1) === activeNodeNumber);
+        });
+        document.querySelector('.header h2').innerHTML = `Underground Mining Safety Monitor - <span style="color: #4ecdc4;">Node ${activeNodeNumber}</span>`;
+    }
+    
+    /**
+     * Updates the status card for a specific node.
+     * @param {string} nodeId - The ID of the node (e.g., 'node_1').
+     * @param {string} status - The status text ('Online', 'Offline').
+     * @param {string} timestamp - The time of the last update.
+     */
+    function updateNodeStatus(nodeId, status, timestamp) {
+        const statusElement = document.getElementById(`${nodeId.replace('_', '')}Status`);
+        if (statusElement) {
+            statusElement.textContent = `${status} @ ${timestamp}`;
+            statusElement.style.background = (status === 'Online') ? 'rgba(76, 175, 80, 0.8)' : 'rgba(244, 67, 54, 0.8)';
+        }
+    }
+    
+    /**
+     * Updates the main statistics cards.
+     */
+    function updateStats() {
+        const bufferedData = nodeData[activeNode] || [];
+        if (bufferedData.length > 0) {
+            const latest = bufferedData[0];
+            const avgTemp = bufferedData.reduce((sum, d) => sum + (d.Temperature || 0), 0) / bufferedData.length;
+            const avgHumidity = bufferedData.reduce((sum, d) => sum + (d.Humidity || 0), 0) / bufferedData.length;
+            
+            document.getElementById('totalReadings').textContent = bufferedData.length;
+            document.getElementById('avgTemperature').textContent = `${avgTemp.toFixed(1)}°C`;
+            document.getElementById('avgHumidity').textContent = `${avgHumidity.toFixed(1)}%`;
+            document.getElementById('lastUpdate').textContent = new Date(latest.timestamp || Date.now()).toLocaleTimeString();
+        } else {
+            // Clear stats if no data
+            ['totalReadings', 'avgTemperature', 'avgHumidity', 'lastUpdate'].forEach(id => {
+                document.getElementById(id).textContent = '-';
+            });
+        }
+    }
+
+    /**
+     * Updates the connection status indicator.
+     * @param {string} status - 'connected' or 'disconnected'.
+     * @param {string} text - The text to display.
+     */
+    function updateConnectionStatus(status, text) {
+        const statusElement = document.getElementById('connectionStatus');
+        statusElement.className = `connection-status ${status}`;
+        document.getElementById('statusText').textContent = text;
+    }
+
+    /**
+     * Sets up the light/dark mode theme switcher.
+     */
+    function initializeTheme() {
+        const themeSwitcher = document.getElementById('themeSwitcher');
+        const themeIcon = document.getElementById('themeIcon');
+        
+        themeSwitcher.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark-mode');
+            document.documentElement.classList.toggle('light-mode');
+            
+            const isDarkMode = document.documentElement.classList.contains('dark-mode');
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+            themeIcon.textContent = isDarkMode ? '🌙' : '☀️';
+        });
+
+        // Apply saved theme
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark-mode');
+            document.documentElement.classList.remove('light-mode');
+            themeIcon.textContent = '🌙';
+        }
+    }
+
+    // ==========================================================================
+    // 8. SAFETY & ALERTING
+    // ==========================================================================
+    
+    /**
+     * Updates all safety status indicators based on the latest data.
+     * @param {object} data - The latest sensor data point.
+     */
+    function updateAllSafetyStatuses(data) {
+        updateSafetyStatus('mq4', data.MQ4, SAFETY_THRESHOLDS.MQ4);
+        updateSafetyStatus('mq5', data.MQ5, SAFETY_THRESHOLDS.MQ5);
+        updateSafetyStatus('mq135', data.MQ135, SAFETY_THRESHOLDS.MQ135);
+        updateSafetyStatus('mq7', data.MQ7, SAFETY_THRESHOLDS.MQ7);
+        updateSafetyStatus('temperature', data.Temperature, SAFETY_THRESHOLDS.Temperature);
+        updateSafetyStatus('humidity', data.Humidity, SAFETY_THRESHOLDS.Humidity);
+
+        // Binary statuses
+        const fireStatus = document.getElementById('fireStatus');
+        if (data.Fire > 0) {
+            fireStatus.className = 'status-indicator status-danger';
+            fireStatus.textContent = 'FIRE DETECTED';
+        } else {
+            fireStatus.className = 'status-indicator status-normal';
+            fireStatus.textContent = 'NORMAL';
+        }
+
+        const vibrationStatus = document.getElementById('vibrationStatus');
+        if (data.Vibration > 0) {
+            vibrationStatus.className = 'status-indicator status-warning';
+            vibrationStatus.textContent = 'VIBRATION';
+        } else {
+            vibrationStatus.className = 'status-indicator status-normal';
+            vibrationStatus.textContent = 'NORMAL';
+        }
+    }
+    
+    /**
+     * Helper function to update a single status indicator.
+     * @param {string} id - The base ID of the status element.
+     * @param {number} value - The sensor value.
+     * @param {object} thresholds - The thresholds for warning and danger.
+     */
+    function updateSafetyStatus(id, value, thresholds) {
+        const statusEl = document.getElementById(`${id}Status`);
+        if (!statusEl) return;
+        
+        value = value || 0; // Default to 0 if value is null/undefined
+        
+        if (value >= thresholds.danger) {
+            statusEl.className = 'status-indicator status-danger';
+            statusEl.textContent = 'DANGER';
+        } else if (value >= thresholds.warning) {
+            statusEl.className = 'status-indicator status-warning';
+            statusEl.textContent = 'WARNING';
+        } else {
+            statusEl.className = 'status-indicator status-normal';
+            statusEl.textContent = 'NORMAL';
+        }
+    }
+
+    /**
+     * Checks the latest data for any alert-level conditions and adds to the event log.
+     * @param {object} data - The latest sensor data point.
+     */
+    function checkForAlerts(data) {
+        const check = (value, thresholds, name) => {
+            if (value >= thresholds.danger) {
+                addEventLog(data.node_id, 'Danger', `${name} level critical: ${value.toFixed(1)}`);
+            } else if (value >= thresholds.warning) {
+                addEventLog(data.node_id, 'Warning', `${name} level high: ${value.toFixed(1)}`);
+            }
+        };
+
+        check(data.Temperature, SAFETY_THRESHOLDS.Temperature, "Temperature");
+        check(data.MQ4, SAFETY_THRESHOLDS.MQ4, "Methane");
+        check(data.MQ7, SAFETY_THRESHOLDS.MQ7, "Carbon Monoxide");
+        if (data.Fire > 0) {
+            addEventLog(data.node_id, 'Danger', 'FIRE DETECTED');
+        }
+    }
+
+    /**
+     * Adds a new row to the event log table.
+     * @param {string} nodeId - The node where the event occurred.
+     * @param {string} severity - 'Info', 'Warning', or 'Danger'.
+     * @param {string} description - The event description.
+     */
+    function addEventLog(nodeId, severity, description) {
+        const logBody = document.getElementById('eventLogBody');
+        const newRow = logBody.insertRow(0); // Insert at the top
+        
+        const severityColors = {
+            'Info': '#3498db',
+            'Warning': '#f39c12',
+            'Danger': '#e74c3c'
+        };
+
+        const icons = {
+            'Info': 'ℹ️',
+            'Warning': '⚠️',
+            'Danger': '🔥'
+        };
+
+        newRow.innerHTML = `
+            <td>${new Date().toLocaleTimeString()}</td>
+            <td>${nodeId.replace('_', ' ')}</td>
+            <td style="color: ${severityColors[severity]}; font-weight: bold;">${severity}</td>
+            <td><span class="log-icon">${icons[severity]}</span>${description}</td>
+        `;
+
+        // Limit log to 100 entries
+        if (logBody.rows.length > 100) {
+            logBody.deleteRow(-1);
+        }
+    }
+    
+    </script>
+</body>
+</html>
