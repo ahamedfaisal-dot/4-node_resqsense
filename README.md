@@ -1,12 +1,12 @@
 # ResQSense - Underground Mining Safety Monitor
 
-## 🚀 **Multi-Node Real-Time Sensor Monitoring System**
+##  **Multi-Node Real-Time Sensor Monitoring System**
 
 ResQSense is an advanced underground mining safety monitoring system that provides real-time visualization of sensor data from multiple mining nodes using WebSocket streaming and interactive 3D visualizations.
 
-## ✨ **Key Features**
+##  **Key Features**
 
-### 🏭 **Multi-Node Support**
+###  **Multi-Node Support**
 - **3 Active Mining Nodes**: Monitor multiple locations simultaneously
 - **Node 1**: Main Shaft - Level 1 (Central access point)
 - **Node 2**: East Tunnel - Level 2 (Eastern expansion)
@@ -14,7 +14,7 @@ ResQSense is an advanced underground mining safety monitoring system that provid
 - **Real-time Node Switching**: Click any node to view its specific data
 - **Individual Data Storage**: Each node maintains separate data history
 
-### 🗺️ **Interactive Underground Mining Map**
+###  **Interactive Underground Mining Map**
 - **3D Mining Layout**: Visual representation of underground structure
 - **Surface Level**: Brown surface layer with main shaft access
 - **Main Shaft**: Central vertical access tunnel
@@ -22,7 +22,7 @@ ResQSense is an advanced underground mining safety monitoring system that provid
 - **Clickable Node Points**: Interactive nodes that navigate to specific data views
 - **Real-time Status**: Visual indicators for each node's operational status
 
-### 📊 **Advanced Sensor Visualization**
+###  **Advanced Sensor Visualization**
 - **Individual Gas Sensor Charts**: Separate monitoring for MQ4, MQ5, MQ135, MQ7
 - **Temperature & Humidity**: Dedicated environmental monitoring
 - **Fire & Vibration Detection**: Binary safety sensors with visual alerts
@@ -30,13 +30,13 @@ ResQSense is an advanced underground mining safety monitoring system that provid
 - **Sound & Pressure**: Combined environmental monitoring
 - **Safety Thresholds**: Underground mining compliance standards
 
-### 🔌 **Real-Time Communication**
+###  **Real-Time Communication**
 - **WebSocket Streaming**: Instant data updates across all nodes
 - **Multi-Node Data Handling**: Simultaneous data processing
 - **Automatic Node Detection**: Smart data routing based on node_id
 - **Connection Status Monitoring**: Real-time connection health indicators
 
-## 🛠️ **Technical Architecture**
+##  **Technical Architecture**
 
 ### **Backend (Flask + SQLite)**
 - **Multi-Node Database**: Separate data storage per node
@@ -59,7 +59,7 @@ Sensor Nodes → Flask Backend → SQLite Database → WebSocket → Frontend Da
    Data        & Processing     Data         to Clients     & Alerts
 ```
 
-## 🚀 **Quick Start**
+##  **Quick Start**
 
 ### **1. Install Dependencies**
 ```bash
@@ -80,7 +80,7 @@ python test_multi_node_client.py
 ### **4. Access Dashboard**
 Open your browser and navigate to: `http://localhost:5000`
 
-## 📱 **Dashboard Features**
+##  **Dashboard Features**
 
 ### **Node Overview Section**
 - **Interactive Node Cards**: Click to switch between nodes
@@ -100,7 +100,7 @@ Open your browser and navigate to: `http://localhost:5000`
 - **Historical Data**: Rolling window of recent readings
 - **Interactive Elements**: Hover tooltips and zoom capabilities
 
-## 🔧 **Configuration**
+##  **Configuration**
 
 ### **Node Setup**
 Each node should send data with the following structure:
@@ -131,7 +131,7 @@ Each node should send data with the following structure:
 - **MQ135 (Air Quality)**: Normal: 0-350 ppm, Warning: 350-700 ppm, Danger: >700 ppm
 - **MQ7 (Carbon Monoxide)**: Normal: 0-200 ppm, Warning: 200-400 ppm, Danger: >400 ppm
 
-## 📊 **API Endpoints**
+##  **API Endpoints**
 
 ### **POST /data**
 Submit sensor data from any node
@@ -153,7 +153,7 @@ Get latest data from all nodes for overview
 curl "http://localhost:5000/api/latest_data_all_nodes"
 ```
 
-## 🎯 **Use Cases**
+##  **Use Cases**
 
 ### **Underground Mining Safety**
 - **Real-time Gas Monitoring**: Continuous air quality assessment
@@ -167,21 +167,21 @@ curl "http://localhost:5000/api/latest_data_all_nodes"
 - **Predictive Maintenance**: Vibration and pressure analysis
 - **Emergency Response**: Real-time alert systems
 
-## 🔒 **Security Features**
+##  **Security Features**
 
 - **CORS Enabled**: Cross-origin resource sharing for development
 - **Input Validation**: JSON payload verification
 - **Error Handling**: Graceful failure management
 - **Connection Monitoring**: Real-time status tracking
 
-## 📱 **Mobile Responsiveness**
+##  **Mobile Responsiveness**
 
 - **Responsive Grid**: Adapts to different screen sizes
 - **Touch-Friendly**: Mobile-optimized interactions
 - **Optimized Charts**: Mobile-optimized visualizations
 - **Adaptive Layout**: Automatic column adjustment
 
-## 🚀 **Future Enhancements**
+##  **Future Enhancements**
 
 - **Additional Sensor Types**: Expand sensor support
 - **Advanced Analytics**: Machine learning integration
@@ -190,7 +190,7 @@ curl "http://localhost:5000/api/latest_data_all_nodes"
 - **User Authentication**: Role-based access control
 - **Mobile App**: Native mobile applications
 
-## 🤝 **Contributing**
+##  **Contributing**
 
 1. Fork the repository
 2. Create a feature branch
@@ -198,11 +198,11 @@ curl "http://localhost:5000/api/latest_data_all_nodes"
 4. Test thoroughly
 5. Submit a pull request
 
-## 📄 **License**
+##  **License**
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 **Support**
+##  **Support**
 
 For support and questions:
 - Create an issue in the repository
