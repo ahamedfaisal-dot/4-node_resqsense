@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResQSense - Underground Mining Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid #00ff88;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00ff88, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            margin: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .status-item {
+            text-align: center;
+            padding: 10px;
+        }
+
+        .status-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00ff88;
+        }
+
+        .main-content {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+
+        .map-container {
+            flex: 3;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #00ff88;
+        }
+
+        .mine-map {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: radial-gradient(circle at 50% 50%, #1a1a2e, #16213e);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .tunnel {
+            position: absolute;
+            background: linear-gradient(90deg, #333, #555, #333);
+            border: 2px solid #666;
+            border-radius: 5px;
+        }
+
+        .main-tunnel {
+            width: 600px;
+            height: 40px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(90deg, #444, #666, #444);
+        }
+
+        .vertical-tunnel {
+            width: 30px;
+            height: 200px;
+            background: linear-gradient(180deg, #444, #666, #444);
+        }
+
+        .tunnel-1 { top: 20%; left: 20%; }
+        .tunnel-2 { top: 20%; right: 20%; }
+        .tunnel-3 { bottom: 20%; left: 30%; }
+        .tunnel-4 { bottom: 20%; right: 30%; }
+
+        .chamber {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, #2d5a87, #1e3f5f);
+            border: 3px solid #00d4ff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        .chamber-1 { top: 10%; left: 15%; }
+        .chamber-2 { top: 10%; right: 15%; }
+        .chamber-3 { bottom: 10%; left: 25%; }
+        .chamber-4 { bottom: 10%; right: 25%; }
+        .chamber-5 { top: 50%; left: 10%; transform: translateY(-50%); }
+
+        .miner {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #00ff88;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
+        }
+
+        .miner:hover {
+            transform: scale(1.5);
+            z-index: 100;
+        }
+
+        .miner.danger {
+            background: #ff4444;
+            animation: alert 1s infinite;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.9);
+        }
+
+        .miner.warning {
+            background: #ffaa00;
+            box-shadow: 0 0 15px rgba(255, 170, 0, 0.8);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        @keyframes alert {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+        }
+
+        .miner-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            border: 1px solid #00ff88;
+            display: none;
+        }
+
+        .sidebar {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 2px solid #00d4ff;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 20px;
+            color: #00d4ff;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        .miner-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .miner-card {
+            background: rgba(255, 255, 255, 0.1);
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #00ff88;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .miner-card:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .miner-card.danger {
+            border-left-color: #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+        }
+
+        .miner-card.warning {
+            border-left-color: #ffaa00;
+            background: rgba(255, 170, 0, 0.1);
+        }
+
+        .miner-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .miner-status {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .miner-vitals {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+
+        .legend {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #fff;
+        }
+
+        .safe { background: #00ff88; }
+        .warning { background: #ffaa00; }
+        .danger { background: #ff4444; }
+
+        .emergency-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(45deg, #ff4444, #cc0000);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(255, 68, 68, 0.5);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .emergency-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 30px rgba(255, 68, 68, 0.8);
+        }
+
+        .coordinates {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 0.8rem;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ResQSense Mining Dashboard</h1>
+        <p>AI-Powered Underground Safety Monitoring System</p>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-item">
+            <div class="status-number">24</div>
+            <div>Active Miners</div>
+        </div>
+        <div class="status-item">
+            <div class="status-number">21</div>
+            <div>Safe Status</div>
+        </div>
+        <div class="status-item">
+            <div class="status-number">2</div>
+            <div>Warning</div>
+        </div>
+        <div class="status-item">
+            <div class="status-number">1</div>
+            <div>Alert</div>
+        </div>
+        <div class="status-item">
+            <div class="status-number">98%</div>
+            <div>O₂ Level</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="map-container">
+            <div class="mine-map" id="mineMap">
+                <!-- Main horizontal tunnel -->
+                <div class="tunnel main-tunnel"></div>
+                
+                <!-- Vertical tunnels -->
+                <div class="tunnel vertical-tunnel tunnel-1"></div>
+                <div class="tunnel vertical-tunnel tunnel-2"></div>
+                <div class="tunnel vertical-tunnel tunnel-3"></div>
+                <div class="tunnel vertical-tunnel tunnel-4"></div>
+                
+                <!-- Mining chambers -->
+                <div class="chamber chamber-1">A1</div>
+                <div class="chamber chamber-2">A2</div>
+                <div class="chamber chamber-3">B1</div>
+                <div class="chamber chamber-4">B2</div>
+                <div class="chamber chamber-5">C1</div>
+
+                <!-- Miners will be added dynamically -->
+                
+                <div class="coordinates">
+                    Depth: 450m | Grid: 12x8 | Last Update: <span id="timestamp"></span>
+                </div>
+            </div>
+            
+            <div class="miner-tooltip" id="minerTooltip"></div>
+        </div>
+
+        <div class="sidebar">
+            <h3>Miner Status</h3>
+            <div class="miner-list" id="minerList">
+                <!-- Miner cards will be added dynamically -->
+            </div>
+
+            <div class="legend">
+                <h4>Status Legend</h4>
+                <div class="legend-item">
+                    <div class="legend-color safe"></div>
+                    <span>Safe - Normal operations</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color warning"></div>
+                    <span>Warning - Monitor closely</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color danger"></div>
+                    <span>Alert - Immediate attention</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="emergency-button" onclick="emergencyAlert()">
+        🚨 EMERGENCY EVACUATION
+    </button>
+
+    <script>
+        const miners = [
+            { id: 1, name: "John Smith", x: 200, y: 150, status: "safe", heartRate: 78, spo2: 98, location: "Tunnel A1" },
+            { id: 2, name: "Mike Johnson", x: 350, y: 200, status: "safe", heartRate: 82, spo2: 97, location: "Main Shaft" },
+            { id: 3, name: "David Wilson", x: 180, y: 320, status: "warning", heartRate: 95, spo2: 94, location: "Chamber B1" },
+            { id: 4, name: "Robert Brown", x: 450, y: 180, status: "safe", heartRate: 75, spo2: 99, location: "Tunnel A2" },
+            { id: 5, name: "James Davis", x: 320, y: 280, status: "danger", heartRate: 110, spo2: 89, location: "Deep Shaft" },
+            { id: 6, name: "William Miller", x: 250, y: 220, status: "safe", heartRate: 80, spo2: 96, location: "Main Tunnel" },
+            { id: 7, name: "Thomas Wilson", x: 380, y: 160, status: "safe", heartRate: 77, spo2: 98, location: "Chamber A2" },
+            { id: 8, name: "Christopher Lee", x: 220, y: 300, status: "warning", heartRate: 88, spo2: 95, location: "South Tunnel" },
+            { id: 9, name: "Daniel Taylor", x: 420, y: 240, status: "safe", heartRate: 79, spo2: 97, location: "East Wing" },
+            { id: 10, name: "Matthew Anderson", x: 280, y: 180, status: "safe", heartRate: 76, spo2: 98, location: "Central Hub" }
+        ];
+
+        function createMiner(miner) {
+            const minerElement = document.createElement('div');
+            minerElement.className = `miner ${miner.status}`;
+            minerElement.id = `miner-${miner.id}`;
+            minerElement.style.left = `${miner.x}px`;
+            minerElement.style.top = `${miner.y}px`;
+            
+            minerElement.addEventListener('mouseenter', (e) => showTooltip(e, miner));
+            minerElement.addEventListener('mouseleave', hideTooltip);
+            minerElement.addEventListener('click', () => focusMiner(miner.id));
+            
+            return minerElement;
+        }
+
+        function createMinerCard(miner) {
+            const card = document.createElement('div');
+            card.className = `miner-card ${miner.status}`;
+            card.onclick = () => focusMiner(miner.id);
+            
+            const statusText = miner.status === 'safe' ? 'Normal' : 
+                             miner.status === 'warning' ? 'Monitor' : 'ALERT';
+            
+            card.innerHTML = `
+                <div class="miner-name">${miner.name}</div>
+                <div class="miner-status">Status: ${statusText} | ${miner.location}</div>
+                <div class="miner-vitals">
+                    <span>❤️ ${miner.heartRate} BPM</span>
+                    <span>🩸 ${miner.spo2}%</span>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function showTooltip(e, miner) {
+            const tooltip = document.getElementById('minerTooltip');
+            const statusText = miner.status === 'safe' ? 'NORMAL' : 
+                             miner.status === 'warning' ? 'MONITOR' : 'ALERT';
+            
+            tooltip.innerHTML = `
+                <strong>${miner.name}</strong><br>
+                Status: ${statusText}<br>
+                Location: ${miner.location}<br>
+                Heart Rate: ${miner.heartRate} BPM<br>
+                SpO₂: ${miner.spo2}%<br>
+                Position: (${miner.x}, ${miner.y})
+            `;
+            
+            tooltip.style.display = 'block';
+            tooltip.style.left = e.pageX + 10 + 'px';
+            tooltip.style.top = e.pageY - 10 + 'px';
+        }
+
+        function hideTooltip() {
+            document.getElementById('minerTooltip').style.display = 'none';
+        }
+
+        function focusMiner(minerId) {
+            // Remove previous highlights
+            document.querySelectorAll('.miner').forEach(m => {
+                m.style.transform = '';
+                m.style.zIndex = '';
+            });
+            
+            // Highlight selected miner
+            const minerElement = document.getElementById(`miner-${minerId}`);
+            if (minerElement) {
+                minerElement.style.transform = 'scale(2)';
+                minerElement.style.zIndex = '1000';
+                
+                // Reset after 3 seconds
+                setTimeout(() => {
+                    minerElement.style.transform = '';
+                    minerElement.style.zIndex = '';
+                }, 3000);
+            }
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('timestamp').textContent = now.toLocaleTimeString();
+        }
+
+        function simulateMovement() {
+            miners.forEach(miner => {
+                // Randomly move miners slightly
+                if (Math.random() > 0.7) {
+                    const moveX = (Math.random() - 0.5) * 20;
+                    const moveY = (Math.random() - 0.5) * 20;
+                    
+                    miner.x = Math.max(50, Math.min(550, miner.x + moveX));
+                    miner.y = Math.max(50, Math.min(350, miner.y + moveY));
+                    
+                    const minerElement = document.getElementById(`miner-${miner.id}`);
+                    if (minerElement) {
+                        minerElement.style.left = `${miner.x}px`;
+                        minerElement.style.top = `${miner.y}px`;
+                    }
+                }
+                
+                // Randomly change vital signs
+                if (Math.random() > 0.8) {
+                    miner.heartRate += Math.floor((Math.random() - 0.5) * 10);
+                    miner.heartRate = Math.max(60, Math.min(120, miner.heartRate));
+                    
+                    miner.spo2 += Math.floor((Math.random() - 0.5) * 4);
+                    miner.spo2 = Math.max(85, Math.min(100, miner.spo2));
+                    
+                    // Update status based on vitals
+                    if (miner.heartRate > 100 || miner.spo2 < 90) {
+                        miner.status = 'danger';
+                    } else if (miner.heartRate > 90 || miner.spo2 < 95) {
+                        miner.status = 'warning';
+                    } else {
+                        miner.status = 'safe';
+                    }
+                    
+                    // Update miner element class
+                    const minerElement = document.getElementById(`miner-${miner.id}`);
+                    if (minerElement) {
+                        minerElement.className = `miner ${miner.status}`;
+                    }
+                }
+            });
+            
+            // Refresh miner list
+            refreshMinerList();
+        }
+
+        function refreshMinerList() {
+            const minerList = document.getElementById('minerList');
+            minerList.innerHTML = '';
+            miners.forEach(miner => {
+                minerList.appendChild(createMinerCard(miner));
+            });
+        }
+
+        function emergencyAlert() {
+            if (confirm('Are you sure you want to trigger emergency evacuation?')) {
+                alert('🚨 EMERGENCY EVACUATION INITIATED!\n\nAll miners have been notified.\nEvacuation routes activated.\nEmergency services alerted.');
+                
+                // Flash all miners
+                document.querySelectorAll('.miner').forEach(miner => {
+                    miner.style.animation = 'alert 0.5s infinite';
+                });
+                
+                setTimeout(() => {
+                    document.querySelectorAll('.miner').forEach(miner => {
+                        miner.style.animation = '';
+                    });
+                }, 5000);
+            }
+        }
+
+        // Initialize the dashboard
+        function init() {
+            const mineMap = document.getElementById('mineMap');
+            const minerList = document.getElementById('minerList');
+            
+            // Add miners to map
+            miners.forEach(miner => {
+                mineMap.appendChild(createMiner(miner));
+            });
+            
+            // Add miner cards to sidebar
+            refreshMinerList();
+            
+            // Update timestamp every second
+            setInterval(updateTimestamp, 1000);
+            updateTimestamp();
+            
+            // Simulate miner movement and vital changes every 5 seconds
+            setInterval(simulateMovement, 5000);
+        }
+
+        // Start the dashboard when page loads
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
